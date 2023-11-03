@@ -25,9 +25,7 @@ abstract class SetupApplicationsTask : DefaultTask() {
 
     @get:Internal
     val regex by lazy {
-        "(commonMain|jvmMain)([\\\\/])resources([\\\\/])(${envs.get().filter { it != env.get() }.joinToString("|")})".also {
-            logger.info("regex: $it, ${envs.get().size}, ${envs.getOrElse(setOf("dev", "prod")).size}")
-        }.toRegex()
+        "(commonMain|jvmMain)([\\\\/])resources([\\\\/])(${envs.get().filter { it != env.get() }.joinToString("|")})".toRegex()
     }
 
     init {
@@ -52,13 +50,17 @@ abstract class SetupApplicationsTask : DefaultTask() {
 
                 fun SourceSet.copyResources(resources: SourceDirectorySet?) {
                     resources?.forEach {
-                        if (!it.path.contains(regex)) {
-                            logger.info("Add ${it.path} -> ${output.resourcesDir!!.path} for ${project.name} [${this.name}]")
-                            copy {
-                                from(it.path)
-                                include { true }
-                                into(output.resourcesDir!!.path)
-                                duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+                        if (!it.path.contains(regex) && output.resourcesDir != null) {
+                            if (!output.resourcesDir!!.resolve(it.name).exists()) {
+                                logger.info("Add ${it.path} -> ${output.resourcesDir!!.path} for ${project.name} [${this.name}]")
+                                copy {
+                                    from(it.path)
+                                    include { true }
+                                    into(output.resourcesDir!!.path)
+                                    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+                                }
+                            } else {
+                                logger.info("Skip ${it.path}: already exists")
                             }
                         }
                     }
@@ -77,16 +79,21 @@ abstract class SetupApplicationsTask : DefaultTask() {
                             copyResources(dependency.dependencyProject.kotlin.sourceSets.named("jvmMain").orNull?.resources)
 
                             val webpackTask = dependency.dependencyProject.tasks.findByName(jsBrowserTaskName)
-                            if (webpackTask != null) {
+                            if (webpackTask != null && output.resourcesDir != null) {
                                 check(webpackTask is org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpack)
                                 val file = File(webpackTask.outputDirectory.asFile.get(), webpackTask.mainOutputFileName.get())
+
                                 if (file.exists()) {
-                                    logger.info("Add ${file.path} -> ${output.resourcesDir!!.path} for ${project.name} [${this.name}]")
-                                    copy {
-                                        from(file)
-                                        include { true }
-                                        into(output.resourcesDir!!.path)
-                                        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+                                    if (!output.resourcesDir!!.resolve(file.name).exists()) {
+                                        logger.info("1 Add ${file.path} -> ${output.resourcesDir!!.path} for ${project.name} [${this.name}]")
+                                        copy {
+                                            from(file)
+                                            include { true }
+                                            into(output.resourcesDir!!.path)
+                                            duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+                                        }
+                                    } else {
+                                        logger.info("Skip ${file.path}: already exists")
                                     }
                                 }
                             }

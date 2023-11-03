@@ -8,7 +8,7 @@ plugins {
 }
 
 group = "ru.raysmith"
-version = "1.1"
+version = "1.2"
 
 repositories {
     mavenCentral()
