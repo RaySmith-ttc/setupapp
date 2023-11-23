@@ -15,6 +15,7 @@ abstract class SetupApplicationPlugin : Plugin<Project> {
             envs.set(extension.envs)
             env.set(extension.env)
             prod.set(extension.prod)
+            sourceSets.set(extension.sourceSets)
         }
 
         project.tasks.getByName("processResources").dependsOn(task)

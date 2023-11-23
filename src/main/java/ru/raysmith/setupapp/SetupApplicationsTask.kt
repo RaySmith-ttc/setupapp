@@ -9,12 +9,16 @@ import org.gradle.api.provider.Property
 import org.gradle.api.provider.SetProperty
 import org.gradle.api.tasks.*
 import org.gradle.kotlin.dsl.the
+import org.jetbrains.kotlin.gradle.dsl.kotlinExtension
 import java.io.File
 
 abstract class SetupApplicationsTask : DefaultTask() {
 
     @get:Input
     abstract val envs: SetProperty<String>
+
+    @get:Input
+    abstract val sourceSets: SetProperty<String>
 
     @get:Input
     abstract val env: Property<String>
@@ -25,7 +29,7 @@ abstract class SetupApplicationsTask : DefaultTask() {
 
     @get:Internal
     val regex by lazy {
-        "(commonMain|jvmMain)([\\\\/])resources([\\\\/])(${envs.get().filter { it != env.get() }.joinToString("|")})".toRegex()
+        "(${sourceSets.get().joinToString("|")})([\\\\/])resources([\\\\/])(${envs.get().filter { it != env.get() }.joinToString("|")})".toRegex()
     }
 
     init {
@@ -72,11 +76,15 @@ abstract class SetupApplicationsTask : DefaultTask() {
                 project.the<SourceSetContainer>().findByName("main")?.apply {
                     val config = project.configurations.getByName("compileClasspath")
 
+                    sourceSets.get().forEach { sourceSet ->
+                        copyResources(project.kotlinExtension.sourceSets.firstOrNull { it.name == sourceSet }?.resources)
+                    }
+
                     config.allDependencies.forEach { dependency ->
                         if (dependency is ProjectDependency) {
-
-                            copyResources(dependency.dependencyProject.kotlin.sourceSets.named("commonMain").orNull?.resources)
-                            copyResources(dependency.dependencyProject.kotlin.sourceSets.named("jvmMain").orNull?.resources)
+                            sourceSets.get().forEach { sourceSet ->
+                                copyResources(dependency.dependencyProject.kotlinExtension.sourceSets.firstOrNull { it.name == sourceSet }?.resources)
+                            }
 
                             val webpackTask = dependency.dependencyProject.tasks.findByName(jsBrowserTaskName)
                             if (webpackTask != null && output.resourcesDir != null) {
@@ -106,5 +114,4 @@ abstract class SetupApplicationsTask : DefaultTask() {
 }
 
 private val Project.kotlin: org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension get() =
-    (this as org.gradle.api.plugins.ExtensionAware).extensions.getByName("kotlin")
-            as org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
+    extensions.getByName("kotlin") as org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension

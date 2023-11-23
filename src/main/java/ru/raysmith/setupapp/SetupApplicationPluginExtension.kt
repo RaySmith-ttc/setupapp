@@ -7,6 +7,7 @@ abstract class SetupApplicationPluginExtension(project: Project) {
     private fun env() = System.getProperty("env") ?: System.getenv("env") ?: "dev"
 
     val envs = project.objects.setProperty(String::class.java).convention(setOf("dev", "prod"))
+    val sourceSets = project.objects.setProperty(String::class.java).convention(setOf("main", "commonMain", "jvmMain"))
     val env = project.property(defaultValue = env())
     val prod = project.property(defaultValue = env() == "prod")
 }

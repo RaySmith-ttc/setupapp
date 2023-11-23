@@ -101,11 +101,12 @@ app.jar
 You don't need to configure any properties if you are using only the `dev` and `prod` environments. 
 In other cases there are properties:
 
-| name | type        | default     | description                                                                                                  |
-|------|-------------|-------------|--------------------------------------------------------------------------------------------------------------|
-| env  | String      | dev         | Current environment                                                                                          |
-| envs | Set<String> | [dev, prod] | Set of all environments                                                                                      |
-| prod | Boolean     | env == dev  | If it is true plugin will be used output from `jsBrowserProductionWebpack` for modules with `jsMain` targets |
+| name       | type        | default                     | description                                                                                                  |
+|------------|-------------|-----------------------------|--------------------------------------------------------------------------------------------------------------|
+| env        | String      | dev                         | Current environment                                                                                          |
+| envs       | Set<String> | [dev, prod]                 | Set of all environments                                                                                      |
+| prod       | Boolean     | env == dev                  | If it is true plugin will be used output from `jsBrowserProductionWebpack` for modules with `jsMain` targets |
+| sourceSets | Set<String> | [main, commonMain, jvmMain] | List of sourceSet from which resources should be inherited                                                   |
 
 #### Example
 ``` kotlin
@@ -113,5 +114,6 @@ setupapp {
     env.set(env())
     envs.set(setOf("dev", "prod", "sandbox"))
     prod.set(env() == "prod")
+    sourceSets.set(setOf("commonMain", "jvmMain", "jsMain "))
 }
 ```
