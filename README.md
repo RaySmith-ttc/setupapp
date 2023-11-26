@@ -6,19 +6,19 @@ Adds resources from dependent gradle modules to the target jar file with filteri
 - Kotlin DSL:
 ```kotlin
 plugins {
-    id("ru.raysmith.setupapp") version "1.3"
+    id("ru.raysmith.setupapp") version "1.4"
 }
 ```
 - Groovy:
 ```groovy
 plugins {
-    id 'ru.raysmith.setupapp' version '1.3'
+    id 'ru.raysmith.setupapp' version '1.4'
 }
 ```
 - With TOML:
 ```toml
 [plugins]
-setupapp = { id = "ru.raysmith.setupapp", version = "1.3" }
+setupapp = { id = "ru.raysmith.setupapp", version = "1.4" }
 ```
 ```kotlin
 @Suppress("DSL_SCOPE_VIOLATION")
@@ -96,6 +96,7 @@ app.jar
 ├── image.jpg
 └── secret.json (from dev)
 ```
+> Don't forget run `gradle :app:clean` after change env
 
 ### Configuration
 You don't need to configure any properties if you are using only the `dev` and `prod` environments. 
@@ -114,6 +115,6 @@ setupapp {
     env.set(env())
     envs.set(setOf("dev", "prod", "sandbox"))
     prod.set(env() == "prod")
-    sourceSets.set(setOf("commonMain", "jvmMain", "jsMain "))
+    sourceSets.set(setOf("commonMain", "jvmMain", "jsMain"))
 }
 ```

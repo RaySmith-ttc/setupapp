@@ -1,7 +1,6 @@
 package ru.raysmith.setupapp
 
 import org.gradle.api.DefaultTask
-import org.gradle.api.Project
 import org.gradle.api.artifacts.ProjectDependency
 import org.gradle.api.file.DuplicatesStrategy
 import org.gradle.api.file.SourceDirectorySet
@@ -74,6 +73,7 @@ abstract class SetupApplicationsTask : DefaultTask() {
                 val jsBrowserTaskName = if (useProdWebpack) "jsBrowserProductionWebpack" else "jsBrowserDevelopmentWebpack"
 
                 project.the<SourceSetContainer>().findByName("main")?.apply {
+                    output.resourcesDir?.deleteRecursively()
                     val config = project.configurations.getByName("compileClasspath")
 
                     sourceSets.get().forEach { sourceSet ->
@@ -112,6 +112,3 @@ abstract class SetupApplicationsTask : DefaultTask() {
         }
     }
 }
-
-private val Project.kotlin: org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension get() =
-    extensions.getByName("kotlin") as org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
