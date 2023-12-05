@@ -1,5 +1,8 @@
 @file:Suppress("UnstableApiUsage")
 
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
+
 plugins {
     `kotlin-dsl`
     kotlin("jvm") version "1.9.10"
@@ -8,7 +11,7 @@ plugins {
 }
 
 group = "ru.raysmith"
-version = "1.4"
+version = "1.5"
 
 repositories {
     mavenCentral()
@@ -36,4 +39,10 @@ gradlePlugin {
 
 publishing {
 
+}
+
+tasks {
+    withType<KotlinCompile> {
+        kotlinOptions.freeCompilerArgs += "-Xcontext-receivers"
+    }
 }

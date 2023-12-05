@@ -1,6 +1,7 @@
 package ru.raysmith.setupapp
 
 import org.gradle.api.DefaultTask
+import org.gradle.api.Project
 import org.gradle.api.artifacts.ProjectDependency
 import org.gradle.api.file.DuplicatesStrategy
 import org.gradle.api.file.SourceDirectorySet
@@ -9,7 +10,12 @@ import org.gradle.api.provider.SetProperty
 import org.gradle.api.tasks.*
 import org.gradle.kotlin.dsl.the
 import org.jetbrains.kotlin.gradle.dsl.kotlinExtension
+import org.jetbrains.kotlin.gradle.kpm.external.ExternalVariantApi
+import org.jetbrains.kotlin.gradle.kpm.external.project
 import java.io.File
+import java.nio.file.Path
+import kotlin.io.path.absolutePathString
+import kotlin.io.path.name
 
 abstract class SetupApplicationsTask : DefaultTask() {
 
@@ -45,66 +51,96 @@ abstract class SetupApplicationsTask : DefaultTask() {
         }
     }
 
+    private fun Path.findParent(target: String): Path? {
+        logger.info(this.absolutePathString())
+        if (name == target) return this
+        if (parent == null) return null
+
+        return parent.findParent(target)
+    }
+
+    private val useProdWebpack by lazy { prod.orElse(false).get() || project.gradle.startParameter.taskNames.contains("installDist") }
+    private val jsBrowserTaskName by lazy { if (useProdWebpack) "jsBrowserProductionWebpack" else "jsBrowserDevelopmentWebpack" }
+    private fun Project.copyAllResources(sourceSet: SourceSet, from: Project) {
+        sourceSets.get().forEach { ss ->
+            copyResources(sourceSet, from.kotlinExtension.sourceSets.firstOrNull { it.name == ss }?.resources, ss)
+        }
+
+        val webpackTask = from.tasks.findByName(jsBrowserTaskName)
+        if (webpackTask != null && sourceSet.output.resourcesDir != null) {
+            check(webpackTask is org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpack)
+            val file = File(webpackTask.outputDirectory.asFile.get(), webpackTask.mainOutputFileName.get())
+
+            if (file.exists()) {
+                if (!sourceSet.output.resourcesDir!!.resolve(file.name).exists()) {
+                    logger.info("Add ${file.path} -> ${sourceSet.output.resourcesDir!!.path} for ${project.name} [${this.name}]")
+                    copy {
+                        from(file)
+                        include { true }
+                        into(sourceSet.output.resourcesDir!!.path)
+                        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+                    }
+                } else {
+                    logger.info("Skip ${file.path}: already exists")
+                }
+            }
+        }
+    }
+
+    private fun Project.copyResources(projectSourceSet: SourceSet, resources: SourceDirectorySet?, sourceSet: String) {
+        resources?.forEach {
+            if (!it.path.contains(regex) && projectSourceSet.output.resourcesDir != null) {
+                if (!projectSourceSet.output.resourcesDir!!.resolve(it.name).exists()) {
+                    val resourcesFolder = "src\\${sourceSet}\\resources\\"
+
+                    val isParentResourcesRoot = it.parent.indexOf(resourcesFolder) != -1
+
+                    // resolving folders
+                    val resourcePath = if (isParentResourcesRoot) {
+                        // resources\foo\bar\image.jpg -> \foo\bar
+                        it.path.substring(it.path.indexOf(resourcesFolder) + resourcesFolder.length).substringBeforeLast('\\')
+                    } else {
+                        // resources\image.jpg -> \image.jpg
+                        it.path
+                    }
+
+                    val target = if (!isParentResourcesRoot || resourcePath.startsWith(env.get())) {
+                        projectSourceSet.output.resourcesDir!!.path
+                    } else {
+                        "${projectSourceSet.output.resourcesDir!!.path}\\$resourcePath"
+                    }
+
+                    logger.info("Add ${it.path} -> $target for ${this.name} [$sourceSet]")
+
+                    copy {
+                        from(it.path)
+                        include { true }
+                        into(target)
+                        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+                    }
+                } else {
+                    logger.info("Skip ${it.path}: already exists")
+                }
+            }
+        }
+    }
+
+    @OptIn(ExternalVariantApi::class)
     @TaskAction
     fun run() {
         with(project) {
             if (pluginManager.hasPlugin("org.gradle.application")) {
                 logger.info("Start setup application for '$name' in environment '${env.get()}'")
 
-                fun SourceSet.copyResources(resources: SourceDirectorySet?) {
-                    resources?.forEach {
-                        if (!it.path.contains(regex) && output.resourcesDir != null) {
-                            if (!output.resourcesDir!!.resolve(it.name).exists()) {
-                                logger.info("Add ${it.path} -> ${output.resourcesDir!!.path} for ${project.name} [${this.name}]")
-                                copy {
-                                    from(it.path)
-                                    include { true }
-                                    into(output.resourcesDir!!.path)
-                                    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-                                }
-                            } else {
-                                logger.info("Skip ${it.path}: already exists")
-                            }
-                        }
-                    }
-                }
-
-                val useProdWebpack = prod.orElse(false).get() || project.gradle.startParameter.taskNames.contains("installDist")
-                val jsBrowserTaskName = if (useProdWebpack) "jsBrowserProductionWebpack" else "jsBrowserDevelopmentWebpack"
-
                 project.the<SourceSetContainer>().findByName("main")?.apply {
                     output.resourcesDir?.deleteRecursively()
                     val config = project.configurations.getByName("compileClasspath")
 
-                    sourceSets.get().forEach { sourceSet ->
-                        copyResources(project.kotlinExtension.sourceSets.firstOrNull { it.name == sourceSet }?.resources)
-                    }
+                    copyAllResources(this, project.kotlinExtension.project)
 
                     config.allDependencies.forEach { dependency ->
                         if (dependency is ProjectDependency) {
-                            sourceSets.get().forEach { sourceSet ->
-                                copyResources(dependency.dependencyProject.kotlinExtension.sourceSets.firstOrNull { it.name == sourceSet }?.resources)
-                            }
-
-                            val webpackTask = dependency.dependencyProject.tasks.findByName(jsBrowserTaskName)
-                            if (webpackTask != null && output.resourcesDir != null) {
-                                check(webpackTask is org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpack)
-                                val file = File(webpackTask.outputDirectory.asFile.get(), webpackTask.mainOutputFileName.get())
-
-                                if (file.exists()) {
-                                    if (!output.resourcesDir!!.resolve(file.name).exists()) {
-                                        logger.info("1 Add ${file.path} -> ${output.resourcesDir!!.path} for ${project.name} [${this.name}]")
-                                        copy {
-                                            from(file)
-                                            include { true }
-                                            into(output.resourcesDir!!.path)
-                                            duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-                                        }
-                                    } else {
-                                        logger.info("Skip ${file.path}: already exists")
-                                    }
-                                }
-                            }
+                            copyAllResources(this, dependency.dependencyProject)
                         }
                     }
                 }
