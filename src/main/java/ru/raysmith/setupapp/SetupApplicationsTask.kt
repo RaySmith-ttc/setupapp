@@ -10,8 +10,6 @@ import org.gradle.api.provider.SetProperty
 import org.gradle.api.tasks.*
 import org.gradle.kotlin.dsl.the
 import org.jetbrains.kotlin.gradle.dsl.kotlinExtension
-import org.jetbrains.kotlin.gradle.kpm.external.ExternalVariantApi
-import org.jetbrains.kotlin.gradle.kpm.external.project
 import java.io.File
 import java.nio.file.Path
 import kotlin.io.path.absolutePathString
@@ -125,7 +123,6 @@ abstract class SetupApplicationsTask : DefaultTask() {
         }
     }
 
-    @OptIn(ExternalVariantApi::class)
     @TaskAction
     fun run() {
         with(project) {
@@ -136,7 +133,7 @@ abstract class SetupApplicationsTask : DefaultTask() {
                     output.resourcesDir?.deleteRecursively()
                     val config = project.configurations.getByName("compileClasspath")
 
-                    copyAllResources(this, project.kotlinExtension.project)
+                    copyAllResources(this, project)
 
                     config.allDependencies.forEach { dependency ->
                         if (dependency is ProjectDependency) {

@@ -5,20 +5,20 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
     `kotlin-dsl`
-    kotlin("jvm") version "1.9.10"
+    kotlin("jvm") version "1.9.21"
     id("com.gradle.plugin-publish") version "1.2.1"
     `java-gradle-plugin`
 }
 
 group = "ru.raysmith"
-version = "1.5"
+version = "1.7-rc.1"
 
 repositories {
     mavenCentral()
 }
 
 dependencies {
-    implementation(kotlin("gradle-plugin", version = "1.9.10"))
+    implementation(kotlin("gradle-plugin", version = "2.0.0-Beta3"))
     implementation(gradleApi())
 }
 
