@@ -5,25 +5,25 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
     `kotlin-dsl`
-    kotlin("jvm") version "1.9.21"
+    kotlin("jvm") version "2.0.0"
     id("com.gradle.plugin-publish") version "1.2.1"
     `java-gradle-plugin`
 }
 
 group = "ru.raysmith"
-version = "1.7-rc.1"
+version = "1.7"
 
 repositories {
     mavenCentral()
 }
 
 dependencies {
-    implementation(kotlin("gradle-plugin", version = "2.0.0-Beta3"))
+    implementation(kotlin("gradle-plugin", version = "2.0.0"))
     implementation(gradleApi())
 }
 
 gradlePlugin {
-    website.set("https://github.com/RaySmith-ttc")
+    website.set("https://github.com/RaySmith-ttc/setupapp.git")
     vcsUrl.set("https://github.com/RaySmith-ttc/setupapp.git")
 
     plugins {
@@ -41,8 +41,8 @@ publishing {
 
 }
 
-tasks {
-    withType<KotlinCompile> {
-        kotlinOptions.freeCompilerArgs += "-Xcontext-receivers"
+kotlin {
+    compilerOptions {
+        freeCompilerArgs.add("-Xcontext-receivers")
     }
 }
