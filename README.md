@@ -6,19 +6,19 @@ Adds resources from dependent gradle modules to the target jar file with filteri
 - Kotlin DSL:
 ```kotlin
 plugins {
-    id("ru.raysmith.setupapp") version "1.5"
+    id("ru.raysmith.setupapp") version "1.8"
 }
 ```
 - Groovy:
 ```groovy
 plugins {
-    id 'ru.raysmith.setupapp' version '1.5'
+    id 'ru.raysmith.setupapp' version '1.8'
 }
 ```
 - With TOML:
 ```toml
 [plugins]
-setupapp = { id = "ru.raysmith.setupapp", version = "1.5" }
+setupapp = { id = "ru.raysmith.setupapp", version = "1.8" }
 ```
 ```kotlin
 @Suppress("DSL_SCOPE_VIOLATION")

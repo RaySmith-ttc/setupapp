@@ -1,24 +1,19 @@
 @file:Suppress("UnstableApiUsage")
 
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
-
-
 plugins {
     `kotlin-dsl`
-    kotlin("jvm") version "2.0.0"
-    id("com.gradle.plugin-publish") version "1.2.1"
-    `java-gradle-plugin`
+    id("com.gradle.plugin-publish") version "1.3.0"
 }
 
 group = "ru.raysmith"
-version = "1.7"
+version = "1.8"
 
 repositories {
     mavenCentral()
 }
 
 dependencies {
-    implementation(kotlin("gradle-plugin", version = "2.0.0"))
+    implementation(kotlin("gradle-plugin", version = "2.0.20"))
     implementation(gradleApi())
 }
 
