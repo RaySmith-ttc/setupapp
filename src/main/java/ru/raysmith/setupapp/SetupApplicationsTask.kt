@@ -2,6 +2,7 @@ package ru.raysmith.setupapp
 
 import org.gradle.api.DefaultTask
 import org.gradle.api.Project
+import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.ProjectDependency
 import org.gradle.api.file.DuplicatesStrategy
 import org.gradle.api.file.SourceDirectorySet
@@ -37,7 +38,7 @@ abstract class SetupApplicationsTask : DefaultTask() {
 
     init {
         project.the<SourceSetContainer>().findByName("main")?.apply {
-            val config = project.configurations.getByName("compileClasspath")
+            val config = project.getCompileClasspathConfiguration()
 
             config.allDependencies.forEach { dependency ->
                 if (dependency is ProjectDependency) {
@@ -123,6 +124,14 @@ abstract class SetupApplicationsTask : DefaultTask() {
         }
     }
 
+    fun Project.getCompileClasspathConfiguration(): Configuration {
+        return with(configurations) {
+            findByName("compileClasspath")
+                ?: findByName("jvmCompileClasspath")
+                ?: error("No compileClasspath found for ${this@getCompileClasspathConfiguration.name}")
+        }
+    }
+
     @TaskAction
     fun run() {
         with(project) {
@@ -131,13 +140,24 @@ abstract class SetupApplicationsTask : DefaultTask() {
 
                 project.the<SourceSetContainer>().findByName("main")?.apply {
                     output.resourcesDir?.deleteRecursively()
-                    val config = project.configurations.getByName("compileClasspath")
+                    val config = project.getCompileClasspathConfiguration()
 
                     copyAllResources(this, project)
+
+                    fun ProjectDependency.m() {
+                        this.dependencyProject.getCompileClasspathConfiguration()
+                            .allDependencies.forEach { dependency ->
+                                if (dependency is ProjectDependency) {
+                                    copyAllResources(this@apply, dependency.dependencyProject)
+                                    dependency.m()
+                                }
+                            }
+                    }
 
                     config.allDependencies.forEach { dependency ->
                         if (dependency is ProjectDependency) {
                             copyAllResources(this, dependency.dependencyProject)
+                            dependency.m()
                         }
                     }
                 }

@@ -22,7 +22,7 @@ abstract class SetupApplicationPlugin : Plugin<Project> {
 
         project.tasks.getByName<ProcessResources>("processResources") {
             exclude(extension.envs.get())
-            dependsOn(task)
+            finalizedBy(task)
         }
     }
 }
