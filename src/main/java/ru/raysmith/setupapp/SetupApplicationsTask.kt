@@ -42,7 +42,7 @@ abstract class SetupApplicationsTask : DefaultTask() {
 
             config.allDependencies.forEach { dependency ->
                 if (dependency is ProjectDependency) {
-                    dependency.dependencyProject.tasks.findByName("jvmJar")?.also {
+                    project.project(dependency.path).tasks.findByName("jvmJar")?.also {
                         dependsOn(it)
                     }
                 }
@@ -145,10 +145,10 @@ abstract class SetupApplicationsTask : DefaultTask() {
                     copyAllResources(this, project)
 
                     fun ProjectDependency.m() {
-                        this.dependencyProject.getCompileClasspathConfiguration()
+                        project(path).getCompileClasspathConfiguration()
                             .allDependencies.forEach { dependency ->
                                 if (dependency is ProjectDependency) {
-                                    copyAllResources(this@apply, dependency.dependencyProject)
+                                    copyAllResources(this@apply, project(dependency.path))
                                     dependency.m()
                                 }
                             }
@@ -156,7 +156,7 @@ abstract class SetupApplicationsTask : DefaultTask() {
 
                     config.allDependencies.forEach { dependency ->
                         if (dependency is ProjectDependency) {
-                            copyAllResources(this, dependency.dependencyProject)
+                            copyAllResources(this, project(dependency.path))
                             dependency.m()
                         }
                     }
