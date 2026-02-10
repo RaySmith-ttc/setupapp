@@ -6,14 +6,14 @@ plugins {
 }
 
 group = "ru.raysmith"
-version = "1.10"
+version = "2.1"
 
 repositories {
     mavenCentral()
 }
 
 dependencies {
-    implementation(kotlin("gradle-plugin", version = "2.2.0"))
+    implementation(kotlin("gradle-plugin", version = "2.2.21"))
     implementation(gradleApi())
 }
 

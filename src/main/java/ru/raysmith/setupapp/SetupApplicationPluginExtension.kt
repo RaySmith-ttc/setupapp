@@ -12,5 +12,5 @@ abstract class SetupApplicationPluginExtension(project: Project) {
     val prod = project.property(defaultValue = env() == "prod")
 }
 
-inline fun <reified T> Project.property(defaultValue: T?): Property<T> =
+inline fun <reified T : Any> Project.property(defaultValue: T?): Property<T> =
     objects.property(T::class.java).convention(defaultValue)

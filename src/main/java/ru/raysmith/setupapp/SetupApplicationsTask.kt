@@ -1,21 +1,24 @@
 package ru.raysmith.setupapp
 
 import org.gradle.api.DefaultTask
-import org.gradle.api.Project
-import org.gradle.api.artifacts.Configuration
-import org.gradle.api.artifacts.ProjectDependency
+import org.gradle.api.file.ConfigurableFileCollection
+import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.DuplicatesStrategy
-import org.gradle.api.file.SourceDirectorySet
+import org.gradle.api.file.FileSystemOperations
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.SetProperty
-import org.gradle.api.tasks.*
-import org.gradle.kotlin.dsl.the
-import org.jetbrains.kotlin.gradle.dsl.kotlinExtension
+import org.gradle.api.tasks.CacheableTask
+import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.InputFiles
+import org.gradle.api.tasks.Optional
+import org.gradle.api.tasks.OutputDirectory
+import org.gradle.api.tasks.PathSensitive
+import org.gradle.api.tasks.PathSensitivity
+import org.gradle.api.tasks.TaskAction
 import java.io.File
-import java.nio.file.Path
-import kotlin.io.path.absolutePathString
-import kotlin.io.path.name
+import javax.inject.Inject
 
+@CacheableTask
 abstract class SetupApplicationsTask : DefaultTask() {
 
     @get:Input
@@ -31,137 +34,86 @@ abstract class SetupApplicationsTask : DefaultTask() {
     @get:Input
     abstract val prod: Property<Boolean>
 
-    @get:Internal
-    val regex by lazy {
-        "(${sourceSets.get().joinToString("|")})([\\\\/])resources([\\\\/])(${envs.get().filter { it != env.get() }.joinToString("|")})".toRegex()
-    }
+    // Директории ресурсов зависимых модулей (src/<ss>/resources)
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val resourceRoots: ConfigurableFileCollection
 
-    init {
-        project.the<SourceSetContainer>().findByName("main")?.apply {
-            val config = project.getCompileClasspathConfiguration()
+    // Выходы задач webpack (опционально)
+    @get:Optional
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val webpackFiles: ConfigurableFileCollection
 
-            config.allDependencies.forEach { dependency ->
-                if (dependency is ProjectDependency) {
-                    project.project(dependency.path).tasks.findByName("jvmJar")?.also {
-                        dependsOn(it)
-                    }
-                }
-            }
-        }
-    }
+    @get:OutputDirectory
+    abstract val outputDir: DirectoryProperty
 
-    private fun Path.findParent(target: String): Path? {
-        logger.info(this.absolutePathString())
-        if (name == target) return this
-        if (parent == null) return null
-
-        return parent.findParent(target)
-    }
-
-    private val useProdWebpack by lazy { prod.orElse(false).get() || project.gradle.startParameter.taskNames.contains("installDist") }
-    private val jsBrowserTaskName by lazy { if (useProdWebpack) "jsBrowserProductionWebpack" else "jsBrowserDevelopmentWebpack" }
-    private fun Project.copyAllResources(sourceSet: SourceSet, from: Project) {
-        sourceSets.get().forEach { ss ->
-            copyResources(sourceSet, from.kotlinExtension.sourceSets.firstOrNull { it.name == ss }?.resources, ss)
-        }
-
-        val webpackTask = from.tasks.findByName(jsBrowserTaskName)
-        if (webpackTask != null && sourceSet.output.resourcesDir != null) {
-            check(webpackTask is org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpack)
-            val file = File(webpackTask.outputDirectory.asFile.get(), webpackTask.mainOutputFileName.get())
-
-            if (file.exists()) {
-                if (!sourceSet.output.resourcesDir!!.resolve(file.name).exists()) {
-                    logger.info("Add ${file.path} -> ${sourceSet.output.resourcesDir!!.path} for ${project.name} [${this.name}]")
-                    copy {
-                        from(file)
-                        include { true }
-                        into(sourceSet.output.resourcesDir!!.path)
-                        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-                    }
-                } else {
-                    logger.info("Skip ${file.path}: already exists")
-                }
-            }
-        }
-    }
-
-    private fun Project.copyResources(projectSourceSet: SourceSet, resources: SourceDirectorySet?, sourceSet: String) {
-        resources?.forEach {
-            if (!it.path.contains(regex) && projectSourceSet.output.resourcesDir != null) {
-                if (!projectSourceSet.output.resourcesDir!!.resolve(it.name).exists()) {
-                    val resourcesFolder = "src\\${sourceSet}\\resources\\"
-
-                    val isParentResourcesRoot = it.parent.indexOf(resourcesFolder) != -1
-
-                    // resolving folders
-                    val resourcePath = if (isParentResourcesRoot) {
-                        // resources\foo\bar\image.jpg -> \foo\bar
-                        it.path.substring(it.path.indexOf(resourcesFolder) + resourcesFolder.length).substringBeforeLast('\\')
-                    } else {
-                        // resources\image.jpg -> \image.jpg
-                        it.path
-                    }
-
-                    val target = if (!isParentResourcesRoot || resourcePath.startsWith(env.get())) {
-                        projectSourceSet.output.resourcesDir!!.path
-                    } else {
-                        "${projectSourceSet.output.resourcesDir!!.path}\\$resourcePath"
-                    }
-
-                    logger.info("Add ${it.path} -> $target for ${this.name} [$sourceSet]")
-
-                    copy {
-                        from(it.path)
-                        include { true }
-                        into(target)
-                        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-                    }
-                } else {
-                    logger.info("Skip ${it.path}: already exists")
-                }
-            }
-        }
-    }
-
-    fun Project.getCompileClasspathConfiguration(): Configuration {
-        return with(configurations) {
-            findByName("compileClasspath")
-                ?: findByName("jvmCompileClasspath")
-                ?: error("No compileClasspath found for ${this@getCompileClasspathConfiguration.name}")
-        }
-    }
+    @get:Inject
+    protected abstract val fs: FileSystemOperations
 
     @TaskAction
     fun run() {
-        with(project) {
-            if (pluginManager.hasPlugin("org.gradle.application")) {
-                logger.info("Start setup application for '$name' in environment '${env.get()}'")
+        logger.info("[SetupApplicationsTask] Start for env=${env.get()}")
+        logger.info("[SetupApplicationsTask] sourceSets: ${sourceSets.get()}")
+        logger.info("[SetupApplicationsTask] resourceRoots: ${resourceRoots.files.map { it.path }}")
+        logger.info("[SetupApplicationsTask] webpackFiles: ${webpackFiles.files.map { it.path }}")
 
-                project.the<SourceSetContainer>().findByName("main")?.apply {
-                    output.resourcesDir?.deleteRecursively()
-                    val config = project.getCompileClasspathConfiguration()
+        val outDir = outputDir.get().asFile
+        outDir.mkdirs()
+        fs.delete { delete(outDir) }
 
-                    copyAllResources(this, project)
+        val currentEnv = env.get()
+        val otherEnvs = envs.get().filter { it != currentEnv }.toSet()
 
-                    fun ProjectDependency.m() {
-                        project(path).getCompileClasspathConfiguration()
-                            .allDependencies.forEach { dependency ->
-                                if (dependency is ProjectDependency) {
-                                    copyAllResources(this@apply, project(dependency.path))
-                                    dependency.m()
-                                }
+        // Копируем ресурсы из перечисленных корней
+        resourceRoots.files
+            .filter(File::exists)
+            .forEach { root ->
+                root.walkTopDown()
+                    .filter { it.isFile }
+                    .forEach { file ->
+                        val rel = file.relativeTo(root).invariantSeparatorsPath
+                        val segments = rel.split('/')
+
+                        // Пропускаем чужие окружения из корня resources
+                        if (segments.isNotEmpty() && segments[0] in otherEnvs) return@forEach
+
+                        // Для текущего окружения "dev" или "prod" убираем первый сегмент
+                        val relOut = if (segments.isNotEmpty() && segments[0] == currentEnv) {
+                            segments.drop(1).joinToString("/")
+                        } else {
+                            rel
+                        }
+
+                        val dest = outputDir.get().file(relOut).asFile
+                        if (!dest.exists()) {
+                            logger.info("Add ${file.path} -> ${dest.parentFile.path}")
+                            fs.copy {
+                                from(file)
+                                into(dest.parentFile)
+                                duplicatesStrategy = DuplicatesStrategy.EXCLUDE
                             }
-                    }
-
-                    config.allDependencies.forEach { dependency ->
-                        if (dependency is ProjectDependency) {
-                            copyAllResources(this, project(dependency.path))
-                            dependency.m()
+                        } else {
+                            logger.info("[SetupApplicationsTask] Skip ${file.path}: already exists")
                         }
                     }
+            }
+
+        // Копируем выходные файлы webpack (если есть)
+        webpackFiles.files
+            .filter(File::exists)
+            .forEach { wf ->
+                val dest = outputDir.get().file(wf.name).asFile
+                if (!dest.exists()) {
+                    logger.info("Add ${wf.path} -> ${dest.parentFile.path} (webpack)")
+                    fs.copy {
+                        from(wf)
+                        into(dest.parentFile)
+                        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+                    }
+                } else {
+                    logger.info("[SetupApplicationsTask] Skip ${wf.path}: already exists")
                 }
             }
-        }
     }
 }
