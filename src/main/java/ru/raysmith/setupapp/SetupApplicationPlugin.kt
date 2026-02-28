@@ -3,9 +3,7 @@ package ru.raysmith.setupapp
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.artifacts.ProjectDependency
-import org.gradle.api.plugins.ApplicationPlugin
 import org.gradle.kotlin.dsl.create
-import org.gradle.kotlin.dsl.named
 import org.gradle.kotlin.dsl.register
 import org.gradle.language.jvm.tasks.ProcessResources
 import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpack
@@ -14,7 +12,6 @@ import java.util.LinkedHashSet
 
 abstract class SetupApplicationPlugin : Plugin<Project> {
     override fun apply(project: Project) {
-        project.plugins.apply(ApplicationPlugin::class.java)
         val extension = project.extensions.create<SetupApplicationPluginExtension>("setupapp")
 
         val task = project.tasks.register<SetupApplicationsTask>("setupapp") {
@@ -26,7 +23,7 @@ abstract class SetupApplicationPlugin : Plugin<Project> {
         }
 
         // Настраиваем processResources сразу (источник подключится позже)
-        project.tasks.named<ProcessResources>("processResources") {
+        project.tasks.withType(ProcessResources::class.java).configureEach {
             exclude(extension.envs.get())
             dependsOn(task)
             from(task.flatMap { it.outputDir })

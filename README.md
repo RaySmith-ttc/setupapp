@@ -6,19 +6,19 @@ Adds resources from dependent gradle modules to the target jar file with filteri
 - Kotlin DSL:
 ```kotlin
 plugins {
-    id("ru.raysmith.setupapp") version "2.1"
+    id("ru.raysmith.setupapp") version "2.2"
 }
 ```
 - Groovy:
 ```groovy
 plugins {
-    id 'ru.raysmith.setupapp' version '2.1'
+    id 'ru.raysmith.setupapp' version '2.2'
 }
 ```
 - With TOML:
 ```toml
 [plugins]
-setupapp = { id = "ru.raysmith.setupapp", version = "2.1" }
+setupapp = { id = "ru.raysmith.setupapp", version = "2.2" }
 ```
 ```kotlin
 @Suppress("DSL_SCOPE_VIOLATION")
@@ -106,7 +106,7 @@ In other cases there are properties:
 |------------|-------------|-----------------------------|--------------------------------------------------------------------------------------------------------------|
 | env        | String      | dev                         | Current environment                                                                                          |
 | envs       | Set<String> | [dev, prod]                 | Set of all environments                                                                                      |
-| prod       | Boolean     | env == dev                  | If it is true plugin will be used output from `jsBrowserProductionWebpack` for modules with `jsMain` targets |
+| prod       | Boolean     | env == 'prod'               | If it is true plugin will be used output from `jsBrowserProductionWebpack` for modules with `jsMain` targets |
 | sourceSets | Set<String> | [main, commonMain, jvmMain] | List of sourceSet from which resources should be inherited                                                   |
 
 #### Example
